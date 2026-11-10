@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package uniswapv2.v1;
+
+// PairCreated from the Uniswap V2 factory.
+// pair_index is the unnamed uint256 on the event (the factory's running pair count).
+message PairCreated {
+  uint64 block_number = 1;
+  uint64 timestamp = 2;
+  string tx_hash = 3;
+  uint32 log_index = 4;
+  string token0 = 5;
+  string token1 = 6;
+  string pair = 7;
+  string pair_index = 8;
+}
+
+message PairCreatedEvents {
+  repeated PairCreated pairs = 1;
+}
+
+// token0 and token1 for a factory pair. Stored once per pair address.
+message PairTokens {
+  string token0 = 1;
+  string token1 = 2;
+}
+
+// Latest reserves of a quote-set pair, used to derive USD prices.
+message QuoteReserves {
+  string token0 = 1;
+  string token1 = 2;
+  string reserve0 = 3;
+  string reserve1 = 4;
+}
+
+// Sync(uint112 reserve0, uint112 reserve1) for a factory-created pair.
+// reserve0_usd and reserve1_usd are empty when neither token has a derived USD price.
+message Sync {
+  uint64 block_number = 1;
+  uint64 timestamp = 2;
+  string tx_hash = 3;
+  uint32 log_index = 4;
+  string pair = 5;
+  string token0 = 6;
+  string token1 = 7;
+  string reserve0 = 8;
+  string reserve1 = 9;
+  string reserve0_usd = 10;
+  string reserve1_usd = 11;
+}
+
+message SyncEvents {
+  repeated Sync syncs = 1;
+}

@@ -1,0 +1,6 @@
+/target
+**/.last_generated_hash
+/src/abi/factory.rs
+/src/abi/pair.rs
+.bin/
+.env

@@ -1,0 +1,109 @@
+specVersion: v0.1.0
+package:
+  name: uniswap_v2
+  version: v0.1.0
+  description: Uniswap V2 PairCreated and Sync events on Ethereum mainnet, with derived USD reserves for USDC, USDT, DAI, WETH, and WBTC.
+
+imports:
+  ethereum_common: ethereum_common@v0.3.3
+
+protobuf:
+  files:
+    - uniswapv2.proto
+  importPaths:
+    - ./proto
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/uniswap_v2.wasm
+
+network: mainnet
+
+modules:
+  - name: map_pair_created
+    kind: map
+    initialBlock: 10000835
+    blockFilter:
+      module: ethereum_common:index_events
+      query:
+        string: "evt_addr:0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f"
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:uniswapv2.v1.PairCreatedEvents
+    doc: |
+      PairCreated events from the Uniswap V2 factory at
+      0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f, starting at its deployment block.
+
+  - name: store_pairs
+    kind: store
+    initialBlock: 10000835
+    updatePolicy: set_if_not_exists
+    valueType: proto:uniswapv2.v1.PairTokens
+    blockFilter:
+      module: ethereum_common:index_events
+      query:
+        string: "evt_addr:0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f"
+    inputs:
+      - map: map_pair_created
+    doc: |
+      Maps each factory pair address to its token0 and token1. A pair is written
+      once. The store starts at factory deployment so Sync output from block
+      25650000 still recognizes pairs created earlier.
+
+  - name: map_raw_syncs
+    kind: map
+    initialBlock: 25650000
+    blockFilter:
+      module: ethereum_common:index_events
+      query:
+        string: "evt_sig:0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - map: map_pair_created
+      - store: store_pairs
+        mode: get
+    output:
+      type: proto:uniswapv2.v1.SyncEvents
+    doc: |
+      Sync events whose contract is a pair from store_pairs. USD fields are empty.
+      Pairs created in the same block are included from map_pair_created, because
+      the store does not show them until the next block.
+
+  - name: store_quote_reserves
+    kind: store
+    initialBlock: 25650000
+    updatePolicy: set
+    valueType: proto:uniswapv2.v1.QuoteReserves
+    blockFilter:
+      module: ethereum_common:index_events
+      query:
+        string: "evt_sig:0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
+    inputs:
+      - map: map_raw_syncs
+    doc: |
+      Latest reserves for pairs whose two tokens are both in the quote set
+      (WBTC, DAI, USDC, WETH, USDT). map_syncs reads this store at the start of
+      the block, so a price lags the Sync that updates it by one block.
+
+  - name: map_syncs
+    kind: map
+    initialBlock: 25650000
+    blockFilter:
+      module: ethereum_common:index_events
+      query:
+        string: "evt_sig:0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
+    inputs:
+      - map: map_raw_syncs
+      - store: store_quote_reserves
+        mode: get
+    output:
+      type: proto:uniswapv2.v1.SyncEvents
+    doc: |
+      Factory-pair Sync events with reserve0_usd and reserve1_usd. USDC is $1.
+      USDT, DAI, WETH, and WBTC prices are liquidity-weighted from their
+      Uniswap V2 pairs. A Sync is priced when either token has a derived price.

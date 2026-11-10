@@ -1,0 +1,25 @@
+[package]
+name = "uniswap_v2"
+version = "0.1.0"
+edition = "2021"
+description = "Uniswap V2 PairCreated and Sync events with derived USD reserves"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+substreams = "0.8.0"
+substreams-ethereum = "0.12.0"
+buffa = { version = "0.9", default-features = false, features = ["std", "fast-utf8"] }
+buffa-types = { version = "0.9", default-features = false }
+hex = "0.4"
+hex-literal = "0.4"
+
+[build-dependencies]
+substreams-ethereum = "0.12.0"
+buffa-build = "0.9"
+
+[profile.release]
+lto = true
+opt-level = "s"
+strip = "debuginfo"
